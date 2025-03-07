@@ -1,10 +1,11 @@
 // Enemy types: asteroids and alien ships
 
 class EnemyManager {
-    constructor(scene, solarSystem, spaceship) {
+    constructor(scene, solarSystem, spaceship, camera) {
         this.scene = scene;
         this.solarSystem = solarSystem;
         this.spaceship = spaceship;
+        this.camera = camera;
         this.enemies = [];
         this.spawnRate = 300; // Increased from 100 to 300 (3x slower)
         this.spawnCounter = 0;  
@@ -230,6 +231,10 @@ class EnemyManager {
     }
     
     createExplosion(position, color = 0xff6600, size = 5, enemy) {
+        // Make sure we handle case when enemy isn't passed
+        const scoreValue = enemy && enemy.userData ? 
+            (enemy.userData.type === 'asteroid' ? 100 : 300) : 100;
+        
         // Create a more complex explosion with multiple elements
         
         // 1. Create core particle burst
@@ -332,7 +337,7 @@ class EnemyManager {
         }, 100);
         
         // 4. Create floating score display
-        this.createFloatingScore(position, enemy.userData.type === 'asteroid' ? 100 : 300, enemy);
+        this.createFloatingScore(position, scoreValue);
         
         // Add everything to the scene
         this.scene.add(explosion);
@@ -356,6 +361,12 @@ class EnemyManager {
     }
     
     createFloatingScore(position, score, enemy) {
+        // Check if camera exists before proceeding
+        if (!this.camera) {
+            console.warn("Camera not available, can't create floating score");
+            return;
+        }
+        
         // Create a div for the score
         const scoreDiv = document.createElement('div');
         scoreDiv.className = 'floating-score';
@@ -524,6 +535,70 @@ class EnemyManager {
         return false;
     }
     
+    spawnHealthPickup() {
+        const currentPlanet = this.solarSystem.getCurrentPlanet();
+        const planetPos = currentPlanet.position.clone();
+        
+        // Position the health pickup near the player's area but not too close to the planet
+        const spawnRadius = currentPlanet.geometry.parameters.radius * 3;
+        const angle = random(0, Math.PI * 2);
+        const height = random(-5, 5);
+        
+        const xPos = planetPos.x + spawnRadius * Math.cos(angle);
+        const zPos = planetPos.z + spawnRadius * Math.sin(angle);
+        
+        // Create a health pickup (medical cross shape)
+        const healthPickup = new THREE.Group();
+        
+        // Main sphere
+        const sphereGeometry = new THREE.SphereGeometry(2, 16, 16);
+        const sphereMaterial = new THREE.MeshPhongMaterial({
+            color: 0x00ff88,
+            shininess: 80,
+            transparent: true,
+            opacity: 0.8
+        });
+        const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+        healthPickup.add(sphere);
+        
+        // Cross/plus shape
+        const crossVGeometry = new THREE.BoxGeometry(0.8, 3, 0.8);
+        const crossHGeometry = new THREE.BoxGeometry(3, 0.8, 0.8);
+        const crossMaterial = new THREE.MeshPhongMaterial({
+            color: 0xffffff,
+            shininess: 100
+        });
+        
+        const crossV = new THREE.Mesh(crossVGeometry, crossMaterial);
+        const crossH = new THREE.Mesh(crossHGeometry, crossMaterial);
+        
+        healthPickup.add(crossV);
+        healthPickup.add(crossH);
+        
+        // Position pickup
+        healthPickup.position.set(xPos, height, zPos);
+        
+        // Add pulsing light
+        const pickupLight = new THREE.PointLight(0x00ff88, 1, 30);
+        pickupLight.position.set(0, 0, 0);
+        healthPickup.add(pickupLight);
+        
+        // Setup pickup properties
+        healthPickup.userData = {
+            type: 'healthPickup',
+            healAmount: 25, // Amount of health to restore
+            rotationSpeed: 0.02,
+            pulseSpeed: 0.03,
+            pulseTime: 0,
+            velocity: new THREE.Vector3(0, 0.02, 0) // Gentle floating motion
+        };
+        
+        console.log(`Health pickup spawned at position: x=${xPos.toFixed(1)}, y=${height.toFixed(1)}, z=${zPos.toFixed(1)}`);
+        
+        this.scene.add(healthPickup);
+        this.enemies.push(healthPickup); // Add to the enemies array for updating
+    }
+    
     update() {
         // Debug info about enemies
         if (this.enemies.length === 0) {
@@ -539,9 +614,52 @@ class EnemyManager {
             this.spawnCounter = 0;
         }
         
+        // Chance to spawn a health pickup when enemies are low
+        if (this.enemies.length < 3 && Math.random() < 0.005) {
+            this.spawnHealthPickup();
+        }
+        
         // Update existing enemies
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             const enemy = this.enemies[i];
+            
+            // Handle health pickup special behavior
+            if (enemy.userData.type === 'healthPickup') {
+                // Floating animation
+                enemy.position.add(enemy.userData.velocity);
+                
+                // Bounce gently
+                if (enemy.position.y > 3 || enemy.position.y < -3) {
+                    enemy.userData.velocity.y *= -1;
+                }
+                
+                // Rotate pickup
+                enemy.rotation.y += enemy.userData.rotationSpeed;
+                
+                // Pulsing effect
+                enemy.userData.pulseTime += enemy.userData.pulseSpeed;
+                const pulseScale = 1 + 0.1 * Math.sin(enemy.userData.pulseTime);
+                enemy.scale.set(pulseScale, pulseScale, pulseScale);
+                
+                // Check collision with player
+                if (distance(enemy.position, this.spaceship.mesh.position) < 8) {
+                    // Player collected health pickup
+                    this.spaceship.restoreHealth(enemy.userData.healAmount);
+                    
+                    // Create collection effect
+                    this.createHealthCollectEffect(enemy.position.clone());
+                    
+                    // Remove pickup
+                    this.scene.remove(enemy);
+                    this.enemies.splice(i, 1);
+                    
+                    // Add score bonus
+                    this.score += 50;
+                    document.getElementById('score-value').textContent = this.score;
+                    
+                    continue;
+                }
+            }
             
             // Handle explosion and smoke animations
             if (enemy.userData.type === 'explosion' || enemy.userData.type === 'smoke') {
@@ -661,5 +779,77 @@ class EnemyManager {
         setTimeout(() => {
             this.scene.remove(hitSphere);
         }, 500);
+    }
+    
+    createHealthCollectEffect(position) {
+        // Create particle system for the health collection effect
+        const particleCount = 40;
+        const particleGeometry = new THREE.BufferGeometry();
+        const particleMaterial = new THREE.PointsMaterial({
+            color: 0x00ff88,
+            size: 1,
+            transparent: true,
+            opacity: 1,
+            blending: THREE.AdditiveBlending
+        });
+        
+        // Create particle positions
+        const positions = new Float32Array(particleCount * 3);
+        const velocities = [];
+        
+        // Initialize particles at the health pickup position
+        for (let i = 0; i < particleCount; i++) {
+            const i3 = i * 3;
+            positions[i3] = position.x;
+            positions[i3 + 1] = position.y;
+            positions[i3 + 2] = position.z;
+            
+            // Random velocity direction for each particle
+            velocities.push(
+                (Math.random() - 0.5) * 0.3,
+                (Math.random() - 0.5) * 0.3 + 0.2, // Slight upward bias
+                (Math.random() - 0.5) * 0.3
+            );
+        }
+        
+        particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        
+        // Create particle system
+        const effect = new THREE.Points(particleGeometry, particleMaterial);
+        effect.userData = {
+            velocities: velocities,
+            lifeTime: 40,
+            type: 'effect'
+        };
+        
+        // Add a point light for the glow effect
+        const healthLight = new THREE.PointLight(0x00ffaa, 2, 30);
+        healthLight.position.copy(position);
+        
+        // Add to scene
+        this.scene.add(effect);
+        this.scene.add(healthLight);
+        
+        // Add effect to be updated
+        this.enemies.push(effect);
+        
+        // Remove light after a short time
+        setTimeout(() => {
+            this.scene.remove(healthLight);
+        }, 500);
+        
+        // Play collection sound
+        if (typeof Audio !== 'undefined') {
+            try {
+                const collectSound = new Audio('https://freesound.org/data/previews/270/270304_5123851-lq.mp3');
+                collectSound.volume = 0.3;
+                collectSound.play().catch(e => console.log("Could not play collect sound", e));
+            } catch (e) {
+                console.log("Audio not supported");
+            }
+        }
+        
+        // Show floating text indicating health restored
+        this.createFloatingScore(position, "+25 Health", 0x00ff88);
     }
 } 

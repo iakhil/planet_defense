@@ -8,7 +8,7 @@ class Game {
         
         this.solarSystem = new SolarSystem(this.scene);
         this.spaceship = new Spaceship(this.scene, this.camera);
-        this.enemyManager = new EnemyManager(this.scene, this.solarSystem, this.spaceship);
+        this.enemyManager = new EnemyManager(this.scene, this.solarSystem, this.spaceship, this.camera);
         
         this.isGameOver = false;
         
@@ -312,4 +312,4 @@ class Game {
         
         document.getElementById('game-container').appendChild(missionUI);
     }
-} 
+}

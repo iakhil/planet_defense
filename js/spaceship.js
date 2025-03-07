@@ -121,12 +121,12 @@ class Spaceship {
     fireLaser() {
         if (this.laserCooldown > 0) return;
         
-        // Create laser beam
-        const laserGeometry = new THREE.CylinderGeometry(0.5, 0.5, 20, 8);
+        // Create a smaller laser beam for the stream effect
+        const laserGeometry = new THREE.CylinderGeometry(0.3, 0.3, 3, 8); // Shorter, more compact beam
         const laserMaterial = new THREE.MeshBasicMaterial({ 
             color: 0xff0000,
-            emissive: 0xff0000,
-            emissiveIntensity: 1
+            transparent: true,
+            opacity: 0.8
         });
         
         const laser = new THREE.Mesh(laserGeometry, laserMaterial);
@@ -141,26 +141,54 @@ class Spaceship {
         // Apply ship rotation to laser
         laser.quaternion.copy(this.mesh.quaternion);
         
-        // Set velocity based on ship direction
-        const velocity = new THREE.Vector3(0, 0, -2.5);
+        // Set velocity based on ship direction - faster for shorter beams
+        const velocity = new THREE.Vector3(0, 0, -3);
         velocity.applyQuaternion(this.mesh.quaternion);
         
         laser.userData = {
             velocity: velocity,
-            lifeTime: 60
+            lifeTime: 40
         };
         
         this.lasers.push(laser);
         this.laserGroup.add(laser);
         
-        // Reset cooldown
-        this.laserCooldown = 5;
+        // Very short cooldown for stream effect
+        this.laserCooldown = 2; // Faster firing rate
         
-        // Add a simple sound effect
-        // (This would be better with a proper audio system)
-        const audio = new Audio('https://www.soundjay.com/buttons/beep-07.wav');
-        audio.volume = 0.2;
-        audio.play().catch(e => console.error('Audio play failed:', e));
+        // Add a simple sound effect with reduced volume (not on every pulse)
+        if (Math.random() > 0.7) {
+            const audio = new Audio('https://www.soundjay.com/buttons/beep-07.wav');
+            audio.volume = 0.1; // Lower volume
+            audio.play().catch(e => console.error('Audio play failed:', e));
+        }
+        
+        // Alternate laser colors for visual interest
+        const colors = [0xff0000, 0xff3333, 0xff6666];
+        this.lastLaserColor = (this.lastLaserColor || 0) + 1;
+        if (this.lastLaserColor >= colors.length) this.lastLaserColor = 0;
+        
+        // Visual feedback - muzzle flash effect
+        this.createMuzzleFlash();
+    }
+    
+    createMuzzleFlash() {
+        // Create a point light for the muzzle flash
+        const flashLight = new THREE.PointLight(0xff3333, 1, 10);
+        
+        // Position at the front of the ship
+        const flashPosition = this.mesh.position.clone();
+        const offset = new THREE.Vector3(0, 0, -8);
+        offset.applyQuaternion(this.mesh.quaternion);
+        flashLight.position.copy(flashPosition.add(offset));
+        
+        // Add to scene
+        this.scene.add(flashLight);
+        
+        // Remove after a short time
+        setTimeout(() => {
+            this.scene.remove(flashLight);
+        }, 50);
     }
     
     takeDamage(amount) {
@@ -227,5 +255,61 @@ class Spaceship {
         
         this.camera.position.copy(this.mesh.position).add(offset);
         this.camera.lookAt(this.mesh.position);
+    }
+    
+    restoreHealth(amount) {
+        // Add health, but cap at 100
+        this.health = Math.min(100, this.health + amount);
+        
+        // Update UI
+        document.getElementById('health-value').textContent = this.health;
+        
+        // Flash the health display
+        const healthElement = document.getElementById('health');
+        healthElement.style.backgroundColor = '#00ff88';
+        healthElement.style.transition = 'background-color 1s';
+        
+        // Reset color after animation
+        setTimeout(() => {
+            healthElement.style.backgroundColor = '';
+        }, 1000);
+        
+        // Add a healing effect to the ship
+        this.createHealEffect();
+    }
+    
+    createHealEffect() {
+        // Create a green glow around the ship
+        const glowGeometry = new THREE.SphereGeometry(5, 16, 16);
+        const glowMaterial = new THREE.MeshBasicMaterial({
+            color: 0x00ff88,
+            transparent: true,
+            opacity: 0.3
+        });
+        
+        const healGlow = new THREE.Mesh(glowGeometry, glowMaterial);
+        healGlow.position.copy(this.mesh.position);
+        
+        this.scene.add(healGlow);
+        
+        // Animate the glow (expand and fade)
+        let scale = 1;
+        let opacity = 0.3;
+        
+        const animateGlow = () => {
+            scale += 0.05;
+            opacity -= 0.01;
+            
+            healGlow.scale.set(scale, scale, scale);
+            glowMaterial.opacity = opacity;
+            
+            if (opacity > 0) {
+                requestAnimationFrame(animateGlow);
+            } else {
+                this.scene.remove(healGlow);
+            }
+        };
+        
+        animateGlow();
     }
 } 
