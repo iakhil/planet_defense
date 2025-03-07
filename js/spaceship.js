@@ -24,23 +24,23 @@ class Spaceship {
         // Create a simple spaceship using basic shapes
         this.mesh = new THREE.Group();
         
-        // Ship body
+        // Ship body - change from blue to red/orange
         const bodyGeometry = new THREE.ConeGeometry(2, 8, 8);
-        const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0x3388ff });
+        const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0xff5533 }); // Changed from blue to orange-red
         const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
         body.rotation.x = Math.PI / 2;
         body.position.z = -4;
         
-        // Wings
+        // Wings - change from dark blue to darker orange/red
         const wingGeometry = new THREE.BoxGeometry(10, 0.5, 3);
-        const wingMaterial = new THREE.MeshPhongMaterial({ color: 0x2266bb });
+        const wingMaterial = new THREE.MeshPhongMaterial({ color: 0xcc3311 }); // Changed from dark blue to darker red
         const wings = new THREE.Mesh(wingGeometry, wingMaterial);
         wings.position.z = -3;
         
-        // Cockpit
+        // Cockpit - change to slightly tinted gold
         const cockpitGeometry = new THREE.SphereGeometry(1.5, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
         const cockpitMaterial = new THREE.MeshPhongMaterial({ 
-            color: 0x88aaff, 
+            color: 0xffdd33, // Changed from blue to gold
             transparent: true,
             opacity: 0.7
         });
