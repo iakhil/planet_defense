@@ -424,9 +424,7 @@ class EnemyManager {
                 // Much larger hit detection radius for asteroids
                 const hitDistance = enemy.userData.type === 'asteroid' ? 15 : 8;
                 
-                // Show hit area for debugging (uncomment to enable visualization)
-                // this.showHitArea(enemy.position, hitDistance);
-                
+                // Check collision with increased hit distance
                 if (distance(laser.position, enemy.position) < hitDistance) {
                     // Reduce enemy health
                     enemy.userData.health--;
@@ -435,6 +433,11 @@ class EnemyManager {
                     this.spaceship.laserGroup.remove(laser);
                     this.spaceship.lasers.splice(i, 1);
                     
+                    // Play laser hit sound for asteroids - IMPROVED VERSION
+                    if (enemy.userData.type === 'asteroid') {
+                        this.playLaserHitSound();
+                    }
+                    
                     // Create a small flash/impact effect even if not destroyed
                     if (enemy.userData.health > 0) {
                         this.createImpactFlash(enemy.position.clone());
@@ -442,6 +445,14 @@ class EnemyManager {
                     
                     // Check if enemy destroyed
                     if (enemy.userData.health <= 0) {
+                        // Add to score
+                        const scoreValue = enemy.userData.type === 'asteroid' ? 100 : 300;
+                        this.score += scoreValue;
+                        this.enemiesDefeated++;
+                        
+                        // Update score display
+                        document.getElementById('score-value').textContent = this.score;
+                        
                         // Create explosion at enemy position before removing it
                         if (enemy.userData.type === 'asteroid') {
                             // Get the asteroid's color for the explosion
@@ -452,26 +463,57 @@ class EnemyManager {
                             this.createExplosion(enemy.position.clone(), 0xaa00ff, 8, enemy);
                         }
                         
-                        // Remove enemy
+                        // Remove the enemy
                         this.scene.remove(enemy);
                         this.enemies.splice(j, 1);
-                        
-                        this.enemiesDefeated++;
-                        
-                        // Add score based on enemy type
-                        if (enemy.userData.type === 'asteroid') {
-                            this.score += 100;
-                        } else if (enemy.userData.type === 'alien') {
-                            this.score += 300;
-                        }
-                        
-                        // Update score display
-                        document.getElementById('score-value').textContent = this.score;
                     }
                     
                     break; // Laser can only hit one enemy
                 }
             }
+        }
+    }
+    
+    // Add a dedicated method for playing the laser hit sound
+    playLaserHitSound() {
+        try {
+            // Create the audio element
+            const hitSound = new Audio();
+            
+            // Set up event listeners for debugging
+            hitSound.addEventListener('error', (e) => {
+                console.error('Error loading sound:', e);
+                // Try fallback sound if main one fails
+                hitSound.src = 'https://s3-us-west-2.amazonaws.com/s.cdpn.io/28963/laser-sound.mp3';
+                hitSound.play().catch(e => console.error('Fallback sound failed:', e));
+            });
+            
+            // Set properties
+            hitSound.volume = 0.4;
+            
+            // Set source and play - try local file first
+            hitSound.src = 'sounds/laser.mp3';
+            
+            // Log when loaded
+            hitSound.addEventListener('canplaythrough', () => {
+                console.log('Laser sound loaded successfully');
+            });
+            
+            // Actually play the sound
+            const playPromise = hitSound.play();
+            
+            // Handle play promise rejection (happens in some browsers)
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.error('Play error:', error);
+                    // Try alternative approach for browsers with autoplay restrictions
+                    document.addEventListener('click', () => {
+                        hitSound.play().catch(e => console.error('Click play failed:', e));
+                    }, { once: true });
+                });
+            }
+        } catch (e) {
+            console.error('Sound playback error:', e);
         }
     }
     
