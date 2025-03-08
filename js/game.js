@@ -28,6 +28,9 @@ class Game {
         // Update health and score displays
         document.getElementById('health-value').textContent = this.spaceship.health;
         document.getElementById('score-value').textContent = '0';
+        
+        // Start background music
+        this.startBackgroundMusic();
     }
     
     setupScene() {
@@ -311,5 +314,79 @@ class Game {
         `;
         
         document.getElementById('game-container').appendChild(missionUI);
+    }
+    
+    startBackgroundMusic() {
+        try {
+            const bgMusic = document.getElementById('bg-music');
+            
+            if (bgMusic) {
+                bgMusic.volume = 0.4; // Set volume to 40%
+                
+                // Add event listener to handle errors
+                bgMusic.addEventListener('error', (e) => {
+                    console.error('Error playing background music:', e);
+                });
+                
+                // Add play button to UI in case of autoplay restrictions
+                const playMusic = () => {
+                    const playPromise = bgMusic.play();
+                    
+                    if (playPromise !== undefined) {
+                        playPromise.catch(error => {
+                            console.log('Autoplay prevented by browser. Click anywhere to start music.');
+                            // Add one-time click event to the document to start music
+                            document.addEventListener('click', () => {
+                                bgMusic.play().catch(e => console.error('Music play failed:', e));
+                            }, { once: true });
+                        });
+                    }
+                };
+                
+                // Try to play the music
+                playMusic();
+                
+                // Ensure it loops
+                bgMusic.loop = true;
+                
+                // Add a simple music control UI
+                this.addMusicControls();
+            } else {
+                console.error('Background music element not found');
+            }
+        } catch (e) {
+            console.error('Error setting up background music:', e);
+        }
+    }
+    
+    addMusicControls() {
+        const musicControls = document.createElement('div');
+        musicControls.id = 'music-controls';
+        musicControls.style.position = 'absolute';
+        musicControls.style.bottom = '20px';
+        musicControls.style.right = '20px';
+        musicControls.style.color = 'white';
+        musicControls.style.cursor = 'pointer';
+        musicControls.style.zIndex = '100';
+        musicControls.style.padding = '5px 10px';
+        musicControls.style.background = 'rgba(0,0,0,0.5)';
+        musicControls.style.borderRadius = '5px';
+        musicControls.innerHTML = '🔊 Music: ON';
+        
+        document.getElementById('game-container').appendChild(musicControls);
+        
+        // Toggle music on click
+        let musicOn = true;
+        musicControls.addEventListener('click', () => {
+            const bgMusic = document.getElementById('bg-music');
+            if (musicOn) {
+                bgMusic.pause();
+                musicControls.innerHTML = '🔇 Music: OFF';
+            } else {
+                bgMusic.play();
+                musicControls.innerHTML = '🔊 Music: ON';
+            }
+            musicOn = !musicOn;
+        });
     }
 }
