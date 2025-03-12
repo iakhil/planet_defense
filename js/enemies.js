@@ -7,11 +7,25 @@ class EnemyManager {
         this.spaceship = spaceship;
         this.camera = camera;
         this.enemies = [];
-        this.spawnRate = 300; // Increased from 100 to 300 (3x slower)
+        this.spawnRate = 300; // Initial spawn rate (about 5 seconds at 60fps)
         this.spawnCounter = 0;  
         this.asteroidGeometries = [];
         this.score = 0;
         this.enemiesDefeated = 0;
+        
+        // Difficulty progression variables
+        this.baseSpawnRate = 300;
+        this.minSpawnRate = 60; // Fastest spawn rate (1 second at 60fps)
+        this.difficultyLevel = 1;
+        this.lastDifficultyIncrease = 0;
+        this.alienChance = 0.05; // Initial 5% chance for aliens
+        this.maxAlienChance = 0.4; // Maximum 40% chance for aliens
+        this.multiSpawnChance = 0; // Initial 0% chance to spawn multiple enemies at once
+        this.maxMultiSpawnChance = 0.7; // Maximum 70% chance to spawn multiple enemies
+        this.maxEnemiesPerSpawn = 1; // Start with 1 enemy per spawn
+        
+        // Preload sounds to avoid lag
+        this.preloadSounds();
         
         // Create asteroid geometries
         this.createAsteroidGeometries();
@@ -22,6 +36,28 @@ class EnemyManager {
                 this.spawnAsteroid();
             }
         }, 3000); // 3 seconds after game starts
+    }
+    
+    preloadSounds() {
+        // Preload explosion sound
+        this.explosionSound = new Audio('https://freesound.org/data/previews/369/369921_4582659-lq.mp3');
+        this.explosionSound.volume = 0.3;
+        this.explosionSound.load();
+        
+        // Preload laser hit sound
+        this.laserHitSound = new Audio('sounds/laser.mp3');
+        this.laserHitSound.volume = 0.4;
+        this.laserHitSound.load();
+        
+        // Fallback laser hit sound
+        this.fallbackLaserSound = new Audio('https://s3-us-west-2.amazonaws.com/s.cdpn.io/28963/laser-sound.mp3');
+        this.fallbackLaserSound.volume = 0.4;
+        this.fallbackLaserSound.load();
+        
+        // Preload health pickup sound
+        this.healthPickupSound = new Audio('https://freesound.org/data/previews/270/270304_5123851-lq.mp3');
+        this.healthPickupSound.volume = 0.3;
+        this.healthPickupSound.load();
     }
     
     createAsteroidGeometries() {
@@ -74,25 +110,70 @@ class EnemyManager {
         const asteroid = new THREE.Mesh(geometry, material);
         asteroid.position.set(xPos, height, zPos);
         
-        // Direction towards the planet
+        // Direction towards the planet - speed increases with difficulty
+        const baseSpeed = 0.1;
+        const difficultyBonus = 0.02 * (this.difficultyLevel - 1);
+        const speed = baseSpeed + difficultyBonus;
+        
         const direction = new THREE.Vector3()
             .subVectors(planetPos, asteroid.position)
             .normalize()
-            .multiplyScalar(0.1 + (this.solarSystem.getCurrentDifficulty() * 0.02));
+            .multiplyScalar(speed);
         
-        // Rotation speed
+        // Rotation speed increases with difficulty
+        const rotationMultiplier = 1 + (this.difficultyLevel * 0.1);
         const rotationSpeed = {
-            x: random(-0.02, 0.02),
-            y: random(-0.02, 0.02),
-            z: random(-0.02, 0.02)
+            x: random(-0.02, 0.02) * rotationMultiplier,
+            y: random(-0.02, 0.02) * rotationMultiplier,
+            z: random(-0.02, 0.02) * rotationMultiplier
         };
+        
+        // Chance for tougher asteroids at higher difficulties
+        let health = 1;
+        let damage = 10;
+        let size = 1.0;
+        
+        // At higher difficulties, some asteroids are tougher
+        if (this.difficultyLevel > 2 && Math.random() < 0.2 + (this.difficultyLevel * 0.05)) {
+            health = 2;
+            damage = 15;
+            size = 1.3;
+            
+            // Scale up the asteroid for visual indication
+            asteroid.scale.set(size, size, size);
+            
+            // Make tougher asteroids redder
+            material.color.r += 0.2;
+            material.color.g -= 0.1;
+            material.color.b -= 0.1;
+        }
+        
+        // At even higher difficulties, some asteroids are very tough
+        if (this.difficultyLevel > 4 && Math.random() < 0.1 + (this.difficultyLevel * 0.02)) {
+            health = 3;
+            damage = 20;
+            size = 1.6;
+            
+            // Scale up the asteroid for visual indication
+            asteroid.scale.set(size, size, size);
+            
+            // Make very tough asteroids even redder
+            material.color.r += 0.3;
+            material.color.g -= 0.2;
+            material.color.b -= 0.2;
+            
+            // Add a glowing effect to indicate danger
+            const glow = new THREE.PointLight(0xff0000, 1, 20);
+            asteroid.add(glow);
+        }
         
         asteroid.userData = {
             type: 'asteroid',
             velocity: direction,
             rotationSpeed: rotationSpeed,
-            health: 1,
-            damage: 10
+            health: health,
+            damage: damage,
+            difficultyLevel: this.difficultyLevel // Store the difficulty level for reference
         };
         
         // Add a stronger light to make asteroid more visible
@@ -152,26 +233,59 @@ class EnemyManager {
         // Position the ship
         alienShip.position.set(xPos, height, zPos);
         
-        // Direction towards the planet
-        const speed = 0.2 + (this.solarSystem.getCurrentDifficulty() * 0.05);
+        // Direction towards the planet - speed increases with difficulty
+        const baseSpeed = 0.2;
+        const difficultyBonus = 0.03 * (this.difficultyLevel - 1);
+        const speed = baseSpeed + difficultyBonus;
+        
         const direction = new THREE.Vector3()
             .subVectors(planetPos, alienShip.position)
             .normalize()
             .multiplyScalar(speed);
         
+        // Health increases with difficulty
+        const baseHealth = 3;
+        const healthBonus = Math.floor((this.difficultyLevel - 1) / 2);
+        const health = baseHealth + healthBonus;
+        
+        // Fire rate increases with difficulty (lower number = faster firing)
+        const baseFireRate = 120;
+        const fireRateReduction = Math.min(60, 10 * (this.difficultyLevel - 1));
+        const fireRate = Math.max(30, baseFireRate - fireRateReduction);
+        
         // Setup alien ship properties
         alienShip.userData = {
             type: 'alien',
             velocity: direction,
-            health: 3,
-            fireCooldown: 60,
-            fireRate: 120
+            health: health,
+            fireCooldown: fireRate / 2, // Start halfway to firing
+            fireRate: fireRate,
+            damage: 10 + (this.difficultyLevel - 1) * 2, // Damage increases with difficulty
+            difficultyLevel: this.difficultyLevel, // Store the difficulty level for reference
+            target: currentPlanet // Set the current planet as the default target
         };
         
         // Add a light to make the alien ship more visible
         const alienLight = new THREE.PointLight(0xaa00ff, 1, 30);
         alienLight.position.set(0, 0, 0);
         alienShip.add(alienLight);
+        
+        // Add visual indicator of difficulty level
+        if (this.difficultyLevel > 1) {
+            // Add a ring around the ship for each difficulty level above 1
+            for (let i = 0; i < Math.min(4, this.difficultyLevel - 1); i++) {
+                const ringGeometry = new THREE.TorusGeometry(3 + (i * 0.5), 0.2, 8, 16);
+                const ringMaterial = new THREE.MeshPhongMaterial({
+                    color: 0xff00ff,
+                    emissive: 0x550055,
+                    transparent: true,
+                    opacity: 0.7
+                });
+                const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+                ring.rotation.x = Math.PI / 2;
+                alienShip.add(ring);
+            }
+        }
         
         this.scene.add(alienShip);
         this.enemies.push(alienShip);
@@ -180,13 +294,28 @@ class EnemyManager {
     spawnEnemy() {
         console.log("Spawning enemy...");
         
-        // Almost always spawn asteroids (95% chance)
-        if (Math.random() < 0.95) {
-            console.log("Spawning asteroid");
-            this.spawnAsteroid();
-        } else {
-            console.log("Spawning alien ship");
-            this.spawnAlienShip();
+        // Calculate current difficulty
+        this.calculateDifficulty();
+        
+        // Determine how many enemies to spawn
+        let enemiesToSpawn = 1;
+        
+        // Chance to spawn multiple enemies at once based on difficulty
+        if (Math.random() < this.multiSpawnChance) {
+            enemiesToSpawn = Math.floor(Math.random() * this.maxEnemiesPerSpawn) + 1;
+            console.log(`Spawning ${enemiesToSpawn} enemies at once!`);
+        }
+        
+        // Spawn the determined number of enemies
+        for (let i = 0; i < enemiesToSpawn; i++) {
+            // Determine enemy type based on current alien chance
+            if (Math.random() < this.alienChance) {
+                console.log("Spawning alien ship");
+                this.spawnAlienShip();
+            } else {
+                console.log("Spawning asteroid");
+                this.spawnAsteroid();
+            }
         }
     }
     
@@ -205,12 +334,25 @@ class EnemyManager {
         // Position laser at alien ship
         laser.position.copy(alienShip.position);
         
-        // Point at target (planet or player with some randomness)
-        const target = Math.random() < 0.3 ? this.spaceship.mesh.position : alienShip.userData.target.position;
+        // Get the current planet as a fallback target
+        const currentPlanet = this.solarSystem.getCurrentPlanet();
+        
+        // Point at target (player or planet with some randomness)
+        let targetPosition;
+        if (Math.random() < 0.3) {
+            // Target the player 30% of the time
+            targetPosition = this.spaceship.mesh.position;
+        } else {
+            // Target the planet 70% of the time
+            // Use the alien's target if defined, otherwise use the current planet
+            targetPosition = (alienShip.userData.target && alienShip.userData.target.position) 
+                ? alienShip.userData.target.position 
+                : currentPlanet.position;
+        }
         
         // Calculate direction to target
         const direction = new THREE.Vector3()
-            .subVectors(target, alienShip.position)
+            .subVectors(targetPosition, alienShip.position)
             .normalize()
             .multiplyScalar(2);
             
@@ -237,8 +379,8 @@ class EnemyManager {
         
         // Create a more complex explosion with multiple elements
         
-        // 1. Create core particle burst
-        const particleCount = 50; // Increased from 30
+        // 1. Create core particle burst - REDUCED PARTICLE COUNT
+        const particleCount = 30; // Reduced from 50 for better performance
         const particleGeometry = new THREE.BufferGeometry();
         const particleMaterial = new THREE.PointsMaterial({
             color: color,
@@ -284,8 +426,8 @@ class EnemyManager {
             type: 'explosion'
         };
         
-        // 2. Add a smoke cloud effect (slower expanding, darker particles)
-        const smokeCount = 30;
+        // 2. Add a smoke cloud effect - REDUCED PARTICLE COUNT
+        const smokeCount = 20; // Reduced from 30 for better performance
         const smokeGeometry = new THREE.BufferGeometry();
         const smokeMaterial = new THREE.PointsMaterial({
             color: 0x444444,
@@ -336,8 +478,16 @@ class EnemyManager {
             this.scene.remove(flashLight);
         }, 100);
         
-        // 4. Create floating score display
-        this.createFloatingScore(position, scoreValue);
+        // 4. Create floating score display - only show positive score for laser hits
+        // Check if this explosion is from a laser hit (positive score) or a collision (negative score)
+        // If health is -1, it's explicitly marked as a collision, not a laser hit
+        const calledFromLaserCollision = enemy && enemy.userData && enemy.userData.health !== -1;
+        
+        // Only show positive score for laser hits, not for collisions
+        if (calledFromLaserCollision) {
+            // This is from a laser hit - show positive score
+            this.createFloatingScore(position, scoreValue);
+        }
         
         // Add everything to the scene
         this.scene.add(explosion);
@@ -348,19 +498,18 @@ class EnemyManager {
         this.enemies.push(explosion);
         this.enemies.push(smoke);
         
-        // Add sound effect
+        // Play sound effect using preloaded sound
         if (typeof Audio !== 'undefined') {
             try {
-                const explosionSound = new Audio('https://freesound.org/data/previews/369/369921_4582659-lq.mp3');
-                explosionSound.volume = 0.3;
-                explosionSound.play().catch(e => console.log("Could not play explosion sound", e));
+                // Clone the preloaded sound to allow multiple simultaneous playback
+                this.explosionSound.cloneNode().play().catch(e => console.log("Could not play explosion sound", e));
             } catch (e) {
                 console.log("Audio not supported");
             }
         }
     }
     
-    createFloatingScore(position, score, enemy) {
+    createFloatingScore(position, score, color = null) {
         // Check if camera exists before proceeding
         if (!this.camera) {
             console.warn("Camera not available, can't create floating score");
@@ -370,9 +519,20 @@ class EnemyManager {
         // Create a div for the score
         const scoreDiv = document.createElement('div');
         scoreDiv.className = 'floating-score';
-        scoreDiv.textContent = `+${score}`;
+        
+        // Handle both positive and negative scores
+        const isNegative = typeof score === 'string' && score.startsWith('-');
+        scoreDiv.textContent = isNegative ? score : `+${score}`;
+        
+        // Set color based on score type or passed color
+        if (color) {
+            scoreDiv.style.color = `#${color.toString(16).padStart(6, '0')}`;
+        } else {
+            scoreDiv.style.color = isNegative ? '#ff4444' : 
+                                  (score >= 300 ? '#ff44ff' : '#ffff44');
+        }
+        
         scoreDiv.style.position = 'absolute';
-        scoreDiv.style.color = score >= 300 ? '#ff44ff' : '#ffff44'; // Purple for aliens, yellow for asteroids
         scoreDiv.style.fontSize = '24px';
         scoreDiv.style.fontWeight = 'bold';
         scoreDiv.style.textShadow = '0 0 5px black';
@@ -445,7 +605,7 @@ class EnemyManager {
                     
                     // Check if enemy destroyed
                     if (enemy.userData.health <= 0) {
-                        // Add to score
+                        // Add to score when destroying enemies
                         const scoreValue = enemy.userData.type === 'asteroid' ? 100 : 300;
                         this.score += scoreValue;
                         this.enemiesDefeated++;
@@ -457,9 +617,11 @@ class EnemyManager {
                         if (enemy.userData.type === 'asteroid') {
                             // Get the asteroid's color for the explosion
                             const explosionColor = enemy.material.color.getHex();
+                            // This is a laser hit, so we don't set health to -1
                             this.createExplosion(enemy.position.clone(), explosionColor, 5, enemy);
                         } else if (enemy.userData.type === 'alien') {
                             // Purple explosion for alien ships
+                            // This is a laser hit, so we don't set health to -1
                             this.createExplosion(enemy.position.clone(), 0xaa00ff, 8, enemy);
                         }
                         
@@ -477,41 +639,13 @@ class EnemyManager {
     // Add a dedicated method for playing the laser hit sound
     playLaserHitSound() {
         try {
-            // Create the audio element
-            const hitSound = new Audio();
-            
-            // Set up event listeners for debugging
-            hitSound.addEventListener('error', (e) => {
-                console.error('Error loading sound:', e);
+            // Use the preloaded sound and clone it for multiple simultaneous playback
+            const soundToPlay = this.laserHitSound.cloneNode();
+            soundToPlay.play().catch(error => {
+                console.error('Play error:', error);
                 // Try fallback sound if main one fails
-                hitSound.src = 'https://s3-us-west-2.amazonaws.com/s.cdpn.io/28963/laser-sound.mp3';
-                hitSound.play().catch(e => console.error('Fallback sound failed:', e));
+                this.fallbackLaserSound.cloneNode().play().catch(e => console.error('Fallback sound failed:', e));
             });
-            
-            // Set properties
-            hitSound.volume = 0.4;
-            
-            // Set source and play - try local file first
-            hitSound.src = 'sounds/laser.mp3';
-            
-            // Log when loaded
-            hitSound.addEventListener('canplaythrough', () => {
-                console.log('Laser sound loaded successfully');
-            });
-            
-            // Actually play the sound
-            const playPromise = hitSound.play();
-            
-            // Handle play promise rejection (happens in some browsers)
-            if (playPromise !== undefined) {
-                playPromise.catch(error => {
-                    console.error('Play error:', error);
-                    // Try alternative approach for browsers with autoplay restrictions
-                    document.addEventListener('click', () => {
-                        hitSound.play().catch(e => console.error('Click play failed:', e));
-                    }, { once: true });
-                });
-            }
         } catch (e) {
             console.error('Sound playback error:', e);
         }
@@ -534,9 +668,43 @@ class EnemyManager {
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             const enemy = this.enemies[i];
             
+            // Skip effects and non-damaging entities
+            if (enemy.userData.type === 'explosion' || 
+                enemy.userData.type === 'smoke' ||
+                enemy.userData.type === 'effect') continue;
+            
+            // Skip enemies that have been destroyed by lasers (health <= 0)
+            // This prevents asteroids that were just shot from damaging the player
+            if (enemy.userData.health !== undefined && enemy.userData.health <= 0) continue;
+            
             if (distance(enemy.position, this.spaceship.mesh.position) < 5) {
                 // Player is hit
                 const isDestroyed = this.spaceship.takeDamage(enemy.userData.damage);
+                
+                // Deduct score when player is hit
+                if (enemy.userData.type === 'asteroid' || enemy.userData.type === 'alien' || enemy.userData.type === 'alienLaser') {
+                    const deduction = enemy.userData.type === 'alienLaser' ? 25 : 50;
+                    this.score -= deduction;
+                    if (this.score < 0) this.score = 0; // Don't go below zero
+                    
+                    // Update score display
+                    document.getElementById('score-value').textContent = this.score;
+                    
+                    // Create a negative score indicator
+                    this.createFloatingScore(enemy.position.clone(), `-${deduction}`, 0xff0000);
+                }
+                
+                // Create explosion for the collision - pass false to indicate this is not a laser hit
+                if (enemy.userData.type === 'asteroid') {
+                    const explosionColor = enemy.material.color.getHex();
+                    // Set health to -1 to indicate this is not a laser hit (for explosion logic)
+                    enemy.userData.health = -1;
+                    this.createExplosion(enemy.position.clone(), explosionColor, 5, enemy);
+                } else if (enemy.userData.type === 'alien') {
+                    // Set health to -1 to indicate this is not a laser hit (for explosion logic)
+                    enemy.userData.health = -1;
+                    this.createExplosion(enemy.position.clone(), 0xaa00ff, 8, enemy);
+                }
                 
                 // Remove the enemy
                 this.scene.remove(enemy);
@@ -559,9 +727,36 @@ class EnemyManager {
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             const enemy = this.enemies[i];
             
+            // Skip non-physical objects
+            if (enemy.userData.type === 'explosion' || 
+                enemy.userData.type === 'smoke' ||
+                enemy.userData.type === 'effect') continue;
+            
             // Check distance to current planet
             if (distance(enemy.position, currentPlanet.position) < planetRadius + 2) {
                 // Planet is hit
+                
+                // Deduct score when planet is hit
+                if (enemy.userData.type === 'asteroid') {
+                    this.score -= 50; // Deduct 50 points for asteroid hits
+                    if (this.score < 0) this.score = 0; // Don't go below zero
+                    
+                    // Update score display
+                    document.getElementById('score-value').textContent = this.score;
+                    
+                    // Create a negative score indicator
+                    this.createFloatingScore(enemy.position.clone(), "-50", 0xff0000);
+                }
+                
+                // Create explosion - pass false to indicate this is not a laser hit
+                if (enemy.userData.type === 'asteroid') {
+                    const explosionColor = enemy.material.color.getHex();
+                    // Set health to -1 to indicate this is not a laser hit (for explosion logic)
+                    enemy.userData.health = -1;
+                    this.createExplosion(enemy.position.clone(), explosionColor, 5, enemy);
+                }
+                
+                // Remove the enemy
                 this.scene.remove(enemy);
                 this.enemies.splice(i, 1);
                 
@@ -647,12 +842,13 @@ class EnemyManager {
             console.log("No enemies present, spawning soon...");
         }
         
+        // Calculate current difficulty (even when not spawning)
+        this.calculateDifficulty();
+        
         // Spawn new enemies
         this.spawnCounter++;
         if (this.spawnCounter >= this.spawnRate) {
             this.spawnEnemy();
-            // Keep spawn rate fixed at 300 frames (about 5 seconds at 60fps)
-            this.spawnRate = 300;
             this.spawnCounter = 0;
         }
         
@@ -663,7 +859,13 @@ class EnemyManager {
         
         // Update existing enemies
         for (let i = this.enemies.length - 1; i >= 0; i--) {
+            // Safety check - skip if enemy is undefined or has been removed
+            if (i >= this.enemies.length || !this.enemies[i]) continue;
+            
             const enemy = this.enemies[i];
+            
+            // Safety check - skip if enemy has no userData
+            if (!enemy.userData) continue;
             
             // Handle health pickup special behavior
             if (enemy.userData.type === 'healthPickup') {
@@ -705,57 +907,101 @@ class EnemyManager {
             
             // Handle explosion and smoke animations
             if (enemy.userData.type === 'explosion' || enemy.userData.type === 'smoke') {
-                // Update particle positions
-                const positions = enemy.geometry.attributes.position.array;
-                const velocities = enemy.userData.velocities;
-                
-                for (let j = 0; j < positions.length / 3; j++) {
-                    const j3 = j * 3;
-                    
-                    // Move each particle
-                    positions[j3] += velocities[j3];
-                    positions[j3 + 1] += velocities[j3 + 1];
-                    positions[j3 + 2] += velocities[j3 + 2];
-                    
-                    // Handle different acceleration for explosion vs smoke
-                    if (enemy.userData.type === 'explosion') {
-                        // Accelerate expansion over time
-                        velocities[j3] *= 1.05;
-                        velocities[j3 + 1] *= 1.05;
-                        velocities[j3 + 2] *= 1.05;
-                    } else if (enemy.userData.type === 'smoke') {
-                        // Slower deceleration for smoke
-                        velocities[j3] *= 0.98;
-                        velocities[j3 + 1] *= 0.98;
-                        velocities[j3 + 2] *= 0.98;
-                        
-                        // Add a slight upward drift to smoke
-                        velocities[j3 + 1] += 0.003;
+                try {
+                    // Safety check - ensure geometry and attributes exist
+                    if (!enemy.geometry || !enemy.geometry.attributes || !enemy.geometry.attributes.position) {
+                        // If geometry is missing, remove the enemy and continue
+                        this.scene.remove(enemy);
+                        this.enemies.splice(i, 1);
+                        continue;
                     }
-                }
-                
-                // Update the geometry
-                enemy.geometry.attributes.position.needsUpdate = true;
-                
-                // Fade out the particles
-                enemy.material.opacity -= 1 / enemy.userData.lifeTime;
-                
-                // Decrease lifetime
-                enemy.userData.lifeTime--;
-                
-                // Remove explosion/smoke when animation completes
-                if (enemy.userData.lifeTime <= 0) {
+                    
+                    // Update particle positions
+                    const positions = enemy.geometry.attributes.position.array;
+                    const velocities = enemy.userData.velocities;
+                    
+                    // Safety check - ensure velocities exist and arrays have matching lengths
+                    if (!velocities || positions.length / 3 * 3 !== velocities.length) {
+                        // If velocities are missing or arrays don't match, remove the enemy and continue
+                        this.scene.remove(enemy);
+                        this.enemies.splice(i, 1);
+                        continue;
+                    }
+                    
+                    for (let j = 0; j < positions.length / 3; j++) {
+                        const j3 = j * 3;
+                        
+                        // Safety check - ensure all indices are valid
+                        if (j3 + 2 >= positions.length || j3 + 2 >= velocities.length) continue;
+                        
+                        // Move each particle
+                        positions[j3] += velocities[j3];
+                        positions[j3 + 1] += velocities[j3 + 1];
+                        positions[j3 + 2] += velocities[j3 + 2];
+                        
+                        // Handle different acceleration for explosion vs smoke
+                        if (enemy.userData.type === 'explosion') {
+                            // Accelerate expansion over time
+                            velocities[j3] *= 1.05;
+                            velocities[j3 + 1] *= 1.05;
+                            velocities[j3 + 2] *= 1.05;
+                        } else if (enemy.userData.type === 'smoke') {
+                            // Slower deceleration for smoke
+                            velocities[j3] *= 0.98;
+                            velocities[j3 + 1] *= 0.98;
+                            velocities[j3 + 2] *= 0.98;
+                            
+                            // Add a slight upward drift to smoke
+                            velocities[j3 + 1] += 0.003;
+                        }
+                    }
+                    
+                    // Update the geometry
+                    enemy.geometry.attributes.position.needsUpdate = true;
+                    
+                    // Fade out the particles
+                    enemy.material.opacity -= 1 / enemy.userData.lifeTime;
+                    
+                    // Decrease lifetime
+                    enemy.userData.lifeTime--;
+                    
+                    // Remove explosion/smoke when animation completes
+                    if (enemy.userData.lifeTime <= 0) {
+                        this.scene.remove(enemy);
+                        this.enemies.splice(i, 1);
+                        continue;
+                    }
+                } catch (error) {
+                    // If any error occurs during particle update, safely remove the enemy
+                    console.error("Error updating particle effect:", error);
                     this.scene.remove(enemy);
                     this.enemies.splice(i, 1);
                     continue;
                 }
             }
             
+            // Safety check - ensure position and velocity exist
+            if (!enemy.position || !enemy.userData.velocity) {
+                this.scene.remove(enemy);
+                this.enemies.splice(i, 1);
+                continue;
+            }
+            
             // Move enemy
-            enemy.position.add(enemy.userData.velocity);
+            try {
+                enemy.position.add(enemy.userData.velocity);
+            } catch (error) {
+                console.error("Error moving enemy:", error);
+                this.scene.remove(enemy);
+                this.enemies.splice(i, 1);
+                continue;
+            }
             
             // Handle different enemy types
             if (enemy.userData.type === 'asteroid') {
+                // Safety check - ensure rotation and rotationSpeed exist
+                if (!enemy.rotation || !enemy.userData.rotationSpeed) continue;
+                
                 // Rotate asteroid
                 enemy.rotation.x += enemy.userData.rotationSpeed.x;
                 enemy.rotation.y += enemy.userData.rotationSpeed.y;
@@ -766,16 +1012,24 @@ class EnemyManager {
                 enemy.userData.fireCooldown--;
                 
                 if (enemy.userData.fireCooldown <= 0) {
-                    this.fireAlienLaser(enemy);
-                    enemy.userData.fireCooldown = enemy.userData.fireRate;
+                    try {
+                        this.fireAlienLaser(enemy);
+                        enemy.userData.fireCooldown = enemy.userData.fireRate;
+                    } catch (error) {
+                        console.error("Error firing alien laser:", error);
+                    }
                 }
                 
                 // Aliens rotate to face their direction of travel
-                enemy.lookAt(
-                    enemy.position.x + enemy.userData.velocity.x,
-                    enemy.position.y + enemy.userData.velocity.y,
-                    enemy.position.z + enemy.userData.velocity.z
-                );
+                try {
+                    enemy.lookAt(
+                        enemy.position.x + enemy.userData.velocity.x,
+                        enemy.position.y + enemy.userData.velocity.y,
+                        enemy.position.z + enemy.userData.velocity.z
+                    );
+                } catch (error) {
+                    console.error("Error rotating alien ship:", error);
+                }
             }
             else if (enemy.userData.type === 'alienLaser') {
                 // Update alien laser lifetime
@@ -788,7 +1042,13 @@ class EnemyManager {
             }
             
             // Remove enemies that are too far away
-            if (distance(enemy.position, this.solarSystem.getCurrentPlanet().position) > 1000) {
+            try {
+                if (distance(enemy.position, this.solarSystem.getCurrentPlanet().position) > 1000) {
+                    this.scene.remove(enemy);
+                    this.enemies.splice(i, 1);
+                }
+            } catch (error) {
+                console.error("Error checking enemy distance:", error);
                 this.scene.remove(enemy);
                 this.enemies.splice(i, 1);
             }
@@ -824,8 +1084,8 @@ class EnemyManager {
     }
     
     createHealthCollectEffect(position) {
-        // Create particle system for the health collection effect
-        const particleCount = 40;
+        // Create particle system for the health collection effect - REDUCED PARTICLE COUNT
+        const particleCount = 25; // Reduced from 40 for better performance
         const particleGeometry = new THREE.BufferGeometry();
         const particleMaterial = new THREE.PointsMaterial({
             color: 0x00ff88,
@@ -880,12 +1140,10 @@ class EnemyManager {
             this.scene.remove(healthLight);
         }, 500);
         
-        // Play collection sound
+        // Play collection sound using preloaded sound
         if (typeof Audio !== 'undefined') {
             try {
-                const collectSound = new Audio('https://freesound.org/data/previews/270/270304_5123851-lq.mp3');
-                collectSound.volume = 0.3;
-                collectSound.play().catch(e => console.log("Could not play collect sound", e));
+                this.healthPickupSound.cloneNode().play().catch(e => console.log("Could not play collect sound", e));
             } catch (e) {
                 console.log("Audio not supported");
             }
@@ -893,5 +1151,79 @@ class EnemyManager {
         
         // Show floating text indicating health restored
         this.createFloatingScore(position, "+25 Health", 0x00ff88);
+    }
+    
+    // Add a new method to calculate difficulty based on score
+    calculateDifficulty() {
+        // Increase difficulty every 500 points
+        const newDifficultyLevel = Math.floor(this.score / 500) + 1;
+        
+        // If difficulty level has increased, update parameters
+        if (newDifficultyLevel > this.difficultyLevel) {
+            this.difficultyLevel = newDifficultyLevel;
+            this.lastDifficultyIncrease = this.score;
+            
+            // Display difficulty increase message
+            this.showDifficultyIncreaseMessage();
+            
+            // Log difficulty increase
+            console.log(`Difficulty increased to level ${this.difficultyLevel}!`);
+        }
+        
+        // Update difficulty display in UI
+        document.getElementById('difficulty-value').textContent = this.difficultyLevel;
+        
+        // Calculate spawn rate (decreases as score increases)
+        this.spawnRate = Math.max(
+            this.minSpawnRate,
+            this.baseSpawnRate - (this.difficultyLevel * 30)
+        );
+        
+        // Calculate alien chance (increases with difficulty)
+        this.alienChance = Math.min(
+            this.maxAlienChance,
+            0.05 + (this.difficultyLevel * 0.04)
+        );
+        
+        // Calculate multi-spawn chance (increases with difficulty)
+        this.multiSpawnChance = Math.min(
+            this.maxMultiSpawnChance,
+            (this.difficultyLevel - 1) * 0.1
+        );
+        
+        // Calculate max enemies per spawn (increases with difficulty)
+        this.maxEnemiesPerSpawn = Math.min(5, 1 + Math.floor(this.difficultyLevel / 2));
+    }
+    
+    // Add a method to show difficulty increase message
+    showDifficultyIncreaseMessage() {
+        // Create a message element
+        const messageDiv = document.createElement('div');
+        messageDiv.style.position = 'absolute';
+        messageDiv.style.top = '50%';
+        messageDiv.style.left = '50%';
+        messageDiv.style.transform = 'translate(-50%, -50%)';
+        messageDiv.style.color = '#ff5500';
+        messageDiv.style.fontSize = '36px';
+        messageDiv.style.fontWeight = 'bold';
+        messageDiv.style.textShadow = '0 0 10px #ff0000';
+        messageDiv.style.zIndex = '1000';
+        messageDiv.style.textAlign = 'center';
+        messageDiv.innerHTML = `
+            <div>DIFFICULTY INCREASED!</div>
+            <div style="font-size: 24px">Level ${this.difficultyLevel}</div>
+        `;
+        
+        // Add to DOM
+        document.getElementById('game-container').appendChild(messageDiv);
+        
+        // Animate and remove
+        setTimeout(() => {
+            messageDiv.style.transition = 'opacity 1s';
+            messageDiv.style.opacity = '0';
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 1000);
+        }, 1500);
     }
 } 
