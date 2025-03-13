@@ -1,67 +1,277 @@
 // Player's spaceship controls and mechanics
 
 class Spaceship {
-    constructor(scene, camera) {
+    constructor(scene, camera, shipType = 'fighter') {
+        console.log(`Creating spaceship of type: ${shipType}`);
+        
         this.scene = scene;
         this.camera = camera;
-        this.speed = 1.5;
-        this.rotationSpeed = 0.05;
+        this.shipType = shipType;
+        
+        // Base stats that will be modified by ship type
+        this.baseSpeed = 1.5;
+        this.baseRotationSpeed = 0.05;
+        this.baseHealth = 100;
+        this.baseLaserCooldownTime = 10;
+        this.baseLaserDamage = 1;
+        
+        // Initialize with base stats
+        this.speed = this.baseSpeed;
+        this.rotationSpeed = this.baseRotationSpeed;
+        this.health = this.baseHealth;
+        this.laserCooldownTime = this.baseLaserCooldownTime;
+        this.laserDamage = this.baseLaserDamage;
+        
+        // Apply ship type modifiers
+        this.applyShipTypeModifiers();
+        
         this.lasers = [];
-        this.health = 100;
         this.laserCooldown = 0;
-        this.laserCooldownTime = 10; // Frames until next laser can be fired
         this.isMovingForward = false;
         this.isMovingBackward = false;
         this.isRotatingLeft = false;
         this.isRotatingRight = false;
         this.isFiring = false;
         
+        // Create a group for the ship mesh
+        this.mesh = new THREE.Group();
+        
+        // Create the spaceship based on type
         this.createSpaceship();
-        this.setupControls();
+        
+        // Only set up controls if we're in the main game (not in preview)
+        if (this.scene && this.camera) {
+            this.setupControls();
+        }
+    }
+    
+    applyShipTypeModifiers() {
+        switch(this.shipType) {
+            case 'interceptor':
+                // Faster, more agile, but less health
+                this.speed = this.baseSpeed * 1.4;
+                this.rotationSpeed = this.baseRotationSpeed * 1.3;
+                this.health = this.baseHealth * 0.8;
+                this.laserCooldownTime = this.baseLaserCooldownTime * 0.8; // Fires faster
+                this.laserDamage = this.baseLaserDamage * 0.9; // Slightly less damage
+                break;
+                
+            case 'destroyer':
+                // Slower, less agile, but more health and damage
+                this.speed = this.baseSpeed * 0.7;
+                this.rotationSpeed = this.baseRotationSpeed * 0.7;
+                this.health = this.baseHealth * 1.5;
+                this.laserCooldownTime = this.baseLaserCooldownTime * 1.5; // Fires slower
+                this.laserDamage = this.baseLaserDamage * 1.5; // More damage
+                break;
+                
+            case 'fighter':
+            default:
+                // Balanced ship - no modifications to base stats
+                break;
+        }
     }
     
     createSpaceship() {
-        // Create a simple spaceship using basic shapes
-        this.mesh = new THREE.Group();
-        
-        // Ship body - change from blue to red/orange
-        const bodyGeometry = new THREE.ConeGeometry(2, 8, 8);
-        const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0xff5533 }); // Changed from blue to orange-red
-        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-        body.rotation.x = Math.PI / 2;
-        body.position.z = -4;
-        
-        // Wings - change from dark blue to darker orange/red
-        const wingGeometry = new THREE.BoxGeometry(10, 0.5, 3);
-        const wingMaterial = new THREE.MeshPhongMaterial({ color: 0xcc3311 }); // Changed from dark blue to darker red
-        const wings = new THREE.Mesh(wingGeometry, wingMaterial);
-        wings.position.z = -3;
-        
-        // Cockpit - change to slightly tinted gold
-        const cockpitGeometry = new THREE.SphereGeometry(1.5, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
-        const cockpitMaterial = new THREE.MeshPhongMaterial({ 
-            color: 0xffdd33, // Changed from blue to gold
-            transparent: true,
-            opacity: 0.7
-        });
-        const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
-        cockpit.rotation.x = -Math.PI / 2;
-        cockpit.position.z = -1;
-        
-        // Add all parts to the ship
-        this.mesh.add(body);
-        this.mesh.add(wings);
-        this.mesh.add(cockpit);
-        
-        // Position the ship
-        this.mesh.position.set(0, 0, 50);
-        this.mesh.rotation.y = Math.PI; // Point forward
-        
-        this.scene.add(this.mesh);
-        
-        // Setup a group for lasers
-        this.laserGroup = new THREE.Group();
-        this.scene.add(this.laserGroup);
+        try {
+            // Create a ship based on the selected type
+            switch(this.shipType) {
+                case 'interceptor':
+                    this.createInterceptor();
+                    break;
+                    
+                case 'destroyer':
+                    this.createDestroyer();
+                    break;
+                    
+                case 'fighter':
+                default:
+                    this.createFighter();
+                    break;
+            }
+            
+            // Position the ship
+            this.mesh.position.set(0, 0, 50);
+            this.mesh.rotation.y = Math.PI; // Point forward
+            
+            // Add the ship to the scene
+            if (this.scene) {
+                this.scene.add(this.mesh);
+            }
+            
+            // Setup a group for lasers
+            this.laserGroup = new THREE.Group();
+            if (this.scene) {
+                this.scene.add(this.laserGroup);
+            }
+        } catch (error) {
+            console.error("Error creating spaceship:", error);
+        }
+    }
+    
+    createFighter() {
+        try {
+            // Original ship design - balanced fighter
+            
+            // Ship body - orange-red
+            const bodyGeometry = new THREE.ConeGeometry(2, 8, 8);
+            const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0xff5533 });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.rotation.x = Math.PI / 2;
+            body.position.z = -4;
+            
+            // Wings - darker orange/red
+            const wingGeometry = new THREE.BoxGeometry(10, 0.5, 3);
+            const wingMaterial = new THREE.MeshPhongMaterial({ color: 0xcc3311 });
+            const wings = new THREE.Mesh(wingGeometry, wingMaterial);
+            wings.position.z = -3;
+            
+            // Cockpit - gold tinted
+            const cockpitGeometry = new THREE.SphereGeometry(1.5, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+            const cockpitMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xffdd33,
+                transparent: true,
+                opacity: 0.7
+            });
+            const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
+            cockpit.rotation.x = -Math.PI / 2;
+            cockpit.position.z = -1;
+            
+            // Add all parts to the ship
+            this.mesh.add(body);
+            this.mesh.add(wings);
+            this.mesh.add(cockpit);
+            
+            // Add engine glow
+            this.addEngineGlow(0xff3300);
+        } catch (error) {
+            console.error("Error creating fighter:", error);
+        }
+    }
+    
+    createInterceptor() {
+        try {
+            // Sleek, fast interceptor design
+            
+            // Ship body - blue/cyan
+            const bodyGeometry = new THREE.ConeGeometry(1.5, 10, 8); // Longer, thinner body
+            const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0x00aaff });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.rotation.x = Math.PI / 2;
+            body.position.z = -4;
+            
+            // Wings - swept back for speed
+            const wingShape = new THREE.Shape();
+            wingShape.moveTo(0, 0);
+            wingShape.lineTo(6, -4);
+            wingShape.lineTo(6, -5);
+            wingShape.lineTo(1, -1);
+            wingShape.lineTo(0, 0);
+            
+            const wingGeometry = new THREE.ExtrudeGeometry(wingShape, {
+                depth: 0.3,
+                bevelEnabled: false
+            });
+            
+            const wingMaterial = new THREE.MeshPhongMaterial({ color: 0x0088cc });
+            
+            // Left wing
+            const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
+            leftWing.position.set(-1, 0, -3);
+            
+            // Right wing (mirrored)
+            const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
+            rightWing.position.set(1, 0, -3);
+            rightWing.scale.x = -1; // Mirror
+            
+            // Cockpit - blue tinted
+            const cockpitGeometry = new THREE.SphereGeometry(1.2, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+            const cockpitMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x88ddff,
+                transparent: true,
+                opacity: 0.7
+            });
+            const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
+            cockpit.rotation.x = -Math.PI / 2;
+            cockpit.position.z = -1;
+            
+            // Add all parts to the ship
+            this.mesh.add(body);
+            this.mesh.add(leftWing);
+            this.mesh.add(rightWing);
+            this.mesh.add(cockpit);
+            
+            // Add engine glow - blue for interceptor
+            this.addEngineGlow(0x00aaff);
+        } catch (error) {
+            console.error("Error creating interceptor:", error);
+        }
+    }
+    
+    createDestroyer() {
+        try {
+            // Heavy, powerful destroyer design
+            
+            // Ship body - dark gray/purple
+            const bodyGeometry = new THREE.BoxGeometry(6, 3, 12);
+            const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0x554466 });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.z = -4;
+            
+            // Heavy armor plating
+            const armorGeometry = new THREE.BoxGeometry(8, 1, 8);
+            const armorMaterial = new THREE.MeshPhongMaterial({ color: 0x443355 });
+            const armor = new THREE.Mesh(armorGeometry, armorMaterial);
+            armor.position.z = -2;
+            
+            // Side cannons
+            const cannonGeometry = new THREE.CylinderGeometry(0.8, 0.8, 5, 8);
+            const cannonMaterial = new THREE.MeshPhongMaterial({ color: 0x332244 });
+            
+            // Left cannon
+            const leftCannon = new THREE.Mesh(cannonGeometry, cannonMaterial);
+            leftCannon.rotation.z = Math.PI / 2;
+            leftCannon.position.set(-4, 0, -4);
+            
+            // Right cannon
+            const rightCannon = new THREE.Mesh(cannonGeometry, cannonMaterial);
+            rightCannon.rotation.z = Math.PI / 2;
+            rightCannon.position.set(4, 0, -4);
+            
+            // Cockpit - purple tinted
+            const cockpitGeometry = new THREE.SphereGeometry(2, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+            const cockpitMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xaa88cc,
+                transparent: true,
+                opacity: 0.7
+            });
+            const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
+            cockpit.rotation.x = -Math.PI / 2;
+            cockpit.position.z = 0;
+            
+            // Add all parts to the ship
+            this.mesh.add(body);
+            this.mesh.add(armor);
+            this.mesh.add(leftCannon);
+            this.mesh.add(rightCannon);
+            this.mesh.add(cockpit);
+            
+            // Add engine glow - purple for destroyer
+            this.addEngineGlow(0x8800aa);
+        } catch (error) {
+            console.error("Error creating destroyer:", error);
+        }
+    }
+    
+    addEngineGlow(color) {
+        try {
+            // Add engine glow effect
+            const engineGlow = new THREE.PointLight(color, 1, 10);
+            engineGlow.position.set(0, 0, -8);
+            this.mesh.add(engineGlow);
+        } catch (error) {
+            console.error("Error adding engine glow:", error);
+        }
     }
     
     setupControls() {
@@ -121,10 +331,33 @@ class Spaceship {
     fireLaser() {
         if (this.laserCooldown > 0) return;
         
-        // Create a smaller laser beam for the stream effect
-        const laserGeometry = new THREE.CylinderGeometry(0.3, 0.3, 3, 8); // Shorter, more compact beam
+        // Create a laser beam with properties based on ship type
+        let laserColor, laserSize, laserLength;
+        
+        switch(this.shipType) {
+            case 'interceptor':
+                laserColor = 0x00ffff; // Cyan lasers
+                laserSize = 0.2;       // Thinner
+                laserLength = 2.5;     // Shorter
+                break;
+                
+            case 'destroyer':
+                laserColor = 0xff00ff; // Purple lasers
+                laserSize = 0.5;       // Thicker
+                laserLength = 4;       // Longer
+                break;
+                
+            case 'fighter':
+            default:
+                laserColor = 0xff0000; // Red lasers
+                laserSize = 0.3;       // Standard
+                laserLength = 3;       // Standard
+                break;
+        }
+        
+        const laserGeometry = new THREE.CylinderGeometry(laserSize, laserSize, laserLength, 8);
         const laserMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0xff0000,
+            color: laserColor,
             transparent: true,
             opacity: 0.8
         });
@@ -147,14 +380,15 @@ class Spaceship {
         
         laser.userData = {
             velocity: velocity,
-            lifeTime: 40
+            lifeTime: 40,
+            damage: this.laserDamage // Store the damage value for this laser
         };
         
         this.lasers.push(laser);
         this.laserGroup.add(laser);
         
-        // Very short cooldown for stream effect
-        this.laserCooldown = 2; // Faster firing rate
+        // Apply cooldown based on ship type
+        this.laserCooldown = this.laserCooldownTime;
         
         // Add a simple sound effect with reduced volume (not on every pulse)
         if (Math.random() > 0.7) {
@@ -164,17 +398,17 @@ class Spaceship {
         }
         
         // Alternate laser colors for visual interest
-        const colors = [0xff0000, 0xff3333, 0xff6666];
+        const colors = [laserColor, laserColor * 1.2, laserColor * 0.8];
         this.lastLaserColor = (this.lastLaserColor || 0) + 1;
         if (this.lastLaserColor >= colors.length) this.lastLaserColor = 0;
         
         // Visual feedback - muzzle flash effect
-        this.createMuzzleFlash();
+        this.createMuzzleFlash(laserColor);
     }
     
-    createMuzzleFlash() {
+    createMuzzleFlash(color = 0xff3333) {
         // Create a point light for the muzzle flash
-        const flashLight = new THREE.PointLight(0xff3333, 1, 10);
+        const flashLight = new THREE.PointLight(color, 1, 10);
         
         // Position at the front of the ship
         const flashPosition = this.mesh.position.clone();
@@ -258,8 +492,11 @@ class Spaceship {
     }
     
     restoreHealth(amount) {
-        // Add health, but cap at 100
-        this.health = Math.min(100, this.health + amount);
+        // Add health, but cap at max health (which varies by ship type)
+        const maxHealth = this.shipType === 'destroyer' ? this.baseHealth * 1.5 : 
+                         (this.shipType === 'interceptor' ? this.baseHealth * 0.8 : this.baseHealth);
+        
+        this.health = Math.min(maxHealth, this.health + amount);
         
         // Update UI
         document.getElementById('health-value').textContent = this.health;
@@ -311,5 +548,18 @@ class Spaceship {
         };
         
         animateGlow();
+    }
+    
+    // Get ship stats for display
+    getStats() {
+        return {
+            type: this.shipType,
+            speed: this.speed,
+            health: this.health,
+            maxHealth: this.shipType === 'destroyer' ? this.baseHealth * 1.5 : 
+                      (this.shipType === 'interceptor' ? this.baseHealth * 0.8 : this.baseHealth),
+            fireRate: Math.round(60 / this.laserCooldownTime), // Approximate shots per second
+            damage: this.laserDamage
+        };
     }
 } 

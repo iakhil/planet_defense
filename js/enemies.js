@@ -586,8 +586,11 @@ class EnemyManager {
                 
                 // Check collision with increased hit distance
                 if (distance(laser.position, enemy.position) < hitDistance) {
-                    // Reduce enemy health
-                    enemy.userData.health--;
+                    // Get laser damage from the laser's userData (set by the spaceship)
+                    const laserDamage = laser.userData.damage || 1;
+                    
+                    // Reduce enemy health by the laser's damage
+                    enemy.userData.health -= laserDamage;
                     
                     // Remove laser
                     this.spaceship.laserGroup.remove(laser);

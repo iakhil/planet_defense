@@ -1,13 +1,13 @@
 // Main game class to handle game state
 
 class Game {
-    constructor() {
+    constructor(shipType = 'fighter') {
         this.setupScene();
         this.setupLighting();
         this.setupCamera();
         
         this.solarSystem = new SolarSystem(this.scene);
-        this.spaceship = new Spaceship(this.scene, this.camera);
+        this.spaceship = new Spaceship(this.scene, this.camera, shipType);
         this.enemyManager = new EnemyManager(this.scene, this.solarSystem, this.spaceship, this.camera);
         
         this.isGameOver = false;
@@ -31,6 +31,9 @@ class Game {
         
         // Start background music
         this.startBackgroundMusic();
+        
+        // Display ship type in UI
+        this.updateShipTypeDisplay();
     }
     
     setupScene() {
@@ -388,5 +391,24 @@ class Game {
             }
             musicOn = !musicOn;
         });
+    }
+    
+    // Add a method to update the UI with the ship type
+    updateShipTypeDisplay() {
+        // Get ship stats
+        const stats = this.spaceship.getStats();
+        
+        // Format ship type name with first letter capitalized
+        const shipTypeName = stats.type.charAt(0).toUpperCase() + stats.type.slice(1);
+        
+        // Add ship type to UI if it doesn't exist
+        if (!document.getElementById('ship-type')) {
+            const shipTypeDiv = document.createElement('div');
+            shipTypeDiv.id = 'ship-type';
+            shipTypeDiv.innerHTML = `Ship: <span id="ship-type-value">${shipTypeName}</span>`;
+            document.getElementById('ui-overlay').appendChild(shipTypeDiv);
+        } else {
+            document.getElementById('ship-type-value').textContent = shipTypeName;
+        }
     }
 }

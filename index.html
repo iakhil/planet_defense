@@ -12,6 +12,125 @@
             z-index: 100;
             font-family: Arial, sans-serif;
         }
+        
+        /* Ship selection screen styles */
+        #ship-selection {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        
+        #ship-selection h1 {
+            font-size: 36px;
+            margin-bottom: 30px;
+            color: #ffcc00;
+            text-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
+        }
+        
+        .ship-options {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .ship-option {
+            width: 250px;
+            background-color: rgba(50, 50, 80, 0.7);
+            border: 2px solid #336699;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .ship-option:hover {
+            background-color: rgba(70, 70, 120, 0.8);
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0, 100, 255, 0.5);
+        }
+        
+        .ship-option.selected {
+            border-color: #ffcc00;
+            box-shadow: 0 0 20px rgba(255, 204, 0, 0.7);
+        }
+        
+        .ship-preview {
+            height: 150px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .ship-preview img, .ship-preview object {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        
+        .ship-name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #88ccff;
+        }
+        
+        .ship-stats {
+            text-align: left;
+            margin-bottom: 15px;
+        }
+        
+        .stat-bar {
+            height: 10px;
+            background-color: #333;
+            border-radius: 5px;
+            margin-top: 5px;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+        
+        .stat-fill {
+            height: 100%;
+            border-radius: 5px;
+        }
+        
+        .start-button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 30px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 18px;
+            margin-top: 20px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .start-button:hover {
+            background-color: #45a049;
+            transform: scale(1.05);
+        }
+        
+        .ship-description {
+            font-style: italic;
+            color: #cccccc;
+            margin-bottom: 15px;
+            height: 40px;
+        }
     </style>
     <audio id="laser-hit-sound" src="laser.mp3" preload="auto"></audio>
     <!-- Add this audio element for background music -->
@@ -19,6 +138,61 @@
 </head>
 <body>
     <div id="game-container">
+        <!-- Ship selection screen -->
+        <div id="ship-selection">
+            <h1>Choose Your Spaceship</h1>
+            <div class="ship-options">
+                <div class="ship-option" data-ship-type="fighter">
+                    <div class="ship-preview">
+                        <object type="image/svg+xml" data="images/fighter.svg" class="ship-image">Fighter Ship</object>
+                    </div>
+                    <div class="ship-name">Fighter</div>
+                    <div class="ship-description">Balanced performance for all pilots</div>
+                    <div class="ship-stats">
+                        <div>Speed</div>
+                        <div class="stat-bar"><div class="stat-fill" style="width: 60%; background-color: #ffcc00;"></div></div>
+                        <div>Health</div>
+                        <div class="stat-bar"><div class="stat-fill" style="width: 60%; background-color: #00cc66;"></div></div>
+                        <div>Firepower</div>
+                        <div class="stat-bar"><div class="stat-fill" style="width: 60%; background-color: #ff3333;"></div></div>
+                    </div>
+                </div>
+                
+                <div class="ship-option" data-ship-type="interceptor">
+                    <div class="ship-preview">
+                        <object type="image/svg+xml" data="images/interceptor.svg" class="ship-image">Interceptor Ship</object>
+                    </div>
+                    <div class="ship-name">Interceptor</div>
+                    <div class="ship-description">Fast and agile, but less durable</div>
+                    <div class="ship-stats">
+                        <div>Speed</div>
+                        <div class="stat-bar"><div class="stat-fill" style="width: 85%; background-color: #ffcc00;"></div></div>
+                        <div>Health</div>
+                        <div class="stat-bar"><div class="stat-fill" style="width: 40%; background-color: #00cc66;"></div></div>
+                        <div>Firepower</div>
+                        <div class="stat-bar"><div class="stat-fill" style="width: 55%; background-color: #ff3333;"></div></div>
+                    </div>
+                </div>
+                
+                <div class="ship-option" data-ship-type="destroyer">
+                    <div class="ship-preview">
+                        <object type="image/svg+xml" data="images/destroyer.svg" class="ship-image">Destroyer Ship</object>
+                    </div>
+                    <div class="ship-name">Destroyer</div>
+                    <div class="ship-description">Heavy firepower and armor, but slow</div>
+                    <div class="ship-stats">
+                        <div>Speed</div>
+                        <div class="stat-bar"><div class="stat-fill" style="width: 35%; background-color: #ffcc00;"></div></div>
+                        <div>Health</div>
+                        <div class="stat-bar"><div class="stat-fill" style="width: 90%; background-color: #00cc66;"></div></div>
+                        <div>Firepower</div>
+                        <div class="stat-bar"><div class="stat-fill" style="width: 85%; background-color: #ff3333;"></div></div>
+                    </div>
+                </div>
+            </div>
+            <button id="start-game" class="start-button">Start Mission</button>
+        </div>
+        
         <div id="ui-overlay">
             <div id="score">Score: <span id="score-value">0</span></div>
             <div id="health">Health: <span id="health-value">100</span></div>
@@ -42,6 +216,7 @@
     <script src="js/spaceship.js"></script>
     <script src="js/enemies.js"></script>
     <script src="js/game.js"></script>
+    <script src="debug.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html> 
