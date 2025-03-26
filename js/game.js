@@ -282,7 +282,40 @@ class Game {
         
         // Update game entities
         this.solarSystem.update();
+        
+        // Store the previous position before update
+        const previousPosition = this.spaceship.mesh.position.clone();
+        
+        // Update spaceship
         this.spaceship.update();
+        
+        // Check for planet collisions
+        const currentPlanet = this.solarSystem.getCurrentPlanet();
+        const planetRadius = currentPlanet.geometry.parameters.radius;
+        const distanceToPlanet = this.spaceship.mesh.position.distanceTo(currentPlanet.position);
+        const minDistance = planetRadius + 5; // Add a small buffer
+        
+        if (distanceToPlanet < minDistance) {
+            // Collision detected - revert to previous position
+            this.spaceship.mesh.position.copy(previousPosition);
+            
+            // Calculate the normal vector from planet center to ship
+            const normal = this.spaceship.mesh.position.clone().sub(currentPlanet.position).normalize();
+            
+            // Move the ship to just outside the planet's surface
+            const safePosition = currentPlanet.position.clone().add(normal.multiplyScalar(minDistance));
+            this.spaceship.mesh.position.copy(safePosition);
+            
+            // Apply a small amount of "bounce" to the velocity
+            if (this.spaceship.velocity) {
+                // Reflect the velocity vector off the planet's surface
+                const dot = this.spaceship.velocity.dot(normal);
+                this.spaceship.velocity.sub(normal.multiplyScalar(2 * dot));
+                // Reduce the velocity (dampening)
+                this.spaceship.velocity.multiplyScalar(0.5);
+            }
+        }
+        
         const gameOverCondition = this.enemyManager.update();
         
         if (gameOverCondition) {

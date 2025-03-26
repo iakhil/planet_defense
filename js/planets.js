@@ -67,7 +67,9 @@ class SolarSystem {
                 orbitRadius: data.orbitRadius,
                 orbitSpeed: 0.001 / Math.sqrt(data.orbitRadius),
                 orbitAngle: 0,
-                difficulty: data.difficulty
+                difficulty: data.difficulty,
+                damageLevel: 0, // Add damage level tracking
+                originalColor: this.getPlanetColor(data.name) // Store original color
             };
             
             // Add rings for Saturn
@@ -178,5 +180,28 @@ class SolarSystem {
             'Neptune': 0x4b70dd  // Dark blue
         };
         return colors[planetName] || 0xffffff;
+    }
+    
+    // Add method to handle planet damage
+    damageCurrentPlanet() {
+        const planet = this.getCurrentPlanet();
+        if (!planet) return;
+        
+        // Increase damage level
+        planet.userData.damageLevel = Math.min(10, planet.userData.damageLevel + 1);
+        
+        // Calculate darkening factor based on damage level (0-10)
+        const darkening = 1 - (planet.userData.damageLevel * 0.07); // Will go down to 30% of original brightness at max damage
+        
+        // Create a new color based on the original but darker
+        const originalColor = new THREE.Color(planet.userData.originalColor);
+        const newColor = new THREE.Color(
+            originalColor.r * darkening,
+            originalColor.g * darkening,
+            originalColor.b * darkening
+        );
+        
+        // Apply the new color
+        planet.material.color = newColor;
     }
 } 

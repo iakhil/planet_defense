@@ -22,6 +22,11 @@ class Spaceship {
         this.laserCooldownTime = this.baseLaserCooldownTime;
         this.laserDamage = this.baseLaserDamage;
         
+        // Initialize velocity vector
+        this.velocity = new THREE.Vector3(0, 0, 0);
+        this.maxVelocity = this.speed * 2;
+        this.drag = 0.98; // Air resistance factor
+        
         // Apply ship type modifiers
         this.applyShipTypeModifiers();
         
@@ -436,59 +441,71 @@ class Spaceship {
     }
     
     update() {
-        // Handle movement
-        if (this.isMovingForward) {
-            const direction = new THREE.Vector3(0, 0, -this.speed);
-            direction.applyQuaternion(this.mesh.quaternion);
-            this.mesh.position.add(direction);
-        }
-        
-        if (this.isMovingBackward) {
-            const direction = new THREE.Vector3(0, 0, this.speed);
-            direction.applyQuaternion(this.mesh.quaternion);
-            this.mesh.position.add(direction);
-        }
-        
         // Handle rotation
         if (this.isRotatingLeft) {
             this.mesh.rotation.y += this.rotationSpeed;
         }
-        
         if (this.isRotatingRight) {
             this.mesh.rotation.y -= this.rotationSpeed;
         }
         
-        // Handle firing
-        if (this.isFiring) {
-            this.fireLaser();
+        // Calculate direction vector based on ship's rotation
+        const direction = new THREE.Vector3(0, 0, -1);
+        direction.applyQuaternion(this.mesh.quaternion);
+        
+        // Apply forces based on input
+        if (this.isMovingForward) {
+            this.velocity.add(direction.multiplyScalar(this.speed * 0.1));
+        }
+        if (this.isMovingBackward) {
+            this.velocity.add(direction.multiplyScalar(-this.speed * 0.05));
+        }
+        
+        // Apply drag force
+        this.velocity.multiplyScalar(this.drag);
+        
+        // Limit maximum velocity
+        if (this.velocity.length() > this.maxVelocity) {
+            this.velocity.normalize().multiplyScalar(this.maxVelocity);
+        }
+        
+        // Update position based on velocity
+        this.mesh.position.add(this.velocity);
+        
+        // Update camera position to follow ship
+        if (this.camera) {
+            const cameraOffset = new THREE.Vector3(0, 20, 50);
+            cameraOffset.applyQuaternion(this.mesh.quaternion);
+            this.camera.position.copy(this.mesh.position).add(cameraOffset);
+            this.camera.lookAt(this.mesh.position);
         }
         
         // Update lasers
+        if (this.laserCooldown > 0) {
+            this.laserCooldown--;
+        }
+        
+        if (this.isFiring && this.laserCooldown <= 0) {
+            this.fireLaser();
+            this.laserCooldown = this.laserCooldownTime;
+        }
+        
+        // Update existing lasers
         for (let i = this.lasers.length - 1; i >= 0; i--) {
             const laser = this.lasers[i];
+            
+            // Move laser based on its velocity
             laser.position.add(laser.userData.velocity);
             
-            // Decrease lifetime
+            // Update distance traveled
             laser.userData.lifeTime--;
             
-            // Remove if lifetime is over
+            // Remove lasers that have expired
             if (laser.userData.lifeTime <= 0) {
                 this.laserGroup.remove(laser);
                 this.lasers.splice(i, 1);
             }
         }
-        
-        // Update laser cooldown
-        if (this.laserCooldown > 0) {
-            this.laserCooldown--;
-        }
-        
-        // Update camera position relative to ship - FIXED VERSION
-        const offset = new THREE.Vector3(0, 10, 20); // Camera offset from ship
-        offset.applyQuaternion(this.mesh.quaternion); // Rotate offset with ship
-        
-        this.camera.position.copy(this.mesh.position).add(offset);
-        this.camera.lookAt(this.mesh.position);
     }
     
     restoreHealth(amount) {
