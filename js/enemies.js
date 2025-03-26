@@ -749,6 +749,9 @@ class EnemyManager {
                     
                     // Create a negative score indicator
                     this.createFloatingScore(enemy.position.clone(), "-50", 0xff0000);
+                    
+                    // Darken the planet when hit by asteroid
+                    this.solarSystem.damageCurrentPlanet();
                 }
                 
                 // Create explosion - pass false to indicate this is not a laser hit
