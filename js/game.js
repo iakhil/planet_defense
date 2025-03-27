@@ -36,6 +36,91 @@ class Game {
         this.updateShipTypeDisplay();
     }
     
+    static initialize() {
+        // Show game objective first, then ship selection
+        Game.showGameObjective();
+    }
+    
+    static showGameObjective() {
+        const objectiveDiv = document.createElement('div');
+        objectiveDiv.style.position = 'fixed';
+        objectiveDiv.style.top = '50%';
+        objectiveDiv.style.left = '50%';
+        objectiveDiv.style.transform = 'translate(-50%, -50%)';
+        objectiveDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+        objectiveDiv.style.color = '#fff';
+        objectiveDiv.style.padding = '30px';
+        objectiveDiv.style.borderRadius = '15px';
+        objectiveDiv.style.maxWidth = '600px';
+        objectiveDiv.style.textAlign = 'center';
+        objectiveDiv.style.zIndex = '1000';
+        objectiveDiv.style.border = '2px solid #4488ff';
+        objectiveDiv.style.boxShadow = '0 0 20px rgba(68, 136, 255, 0.3)';
+
+        objectiveDiv.innerHTML = `
+            <h2 style="color: #4488ff; margin-bottom: 20px; font-size: 24px">Planet Defense</h2>
+            <p style="margin-bottom: 15px; line-height: 1.5">Earth is under attack from asteroids and alien ships! As Earth's last defender, your mission is to protect the planet from incoming threats.</p>
+            <div style="margin-bottom: 20px; text-align: left">
+                <h3 style="color: #4488ff; margin-bottom: 10px; font-size: 18px">Story:</h3>
+                <p style="margin-bottom: 15px; line-height: 1.5">
+                    A wave of asteroids and hostile alien ships threatens Earth's existence. 
+                    As humanity's last line of defense, you must protect Earth from these threats.
+                    Your skills as a pilot and your choice of ship will determine Earth's fate.
+                </p>
+            </div>
+            <div style="margin-bottom: 20px; text-align: left">
+                <h3 style="color: #4488ff; margin-bottom: 10px; font-size: 18px">Controls:</h3>
+                <ul style="list-style: none; padding: 0">
+                    <li>🔹 W/S - Move forward/backward</li>
+                    <li>🔹 A/D - Rotate left/right</li>
+                    <li>🔹 Space - Fire lasers</li>
+                </ul>
+            </div>
+            <div style="margin-bottom: 20px; text-align: left">
+                <h3 style="color: #4488ff; margin-bottom: 10px; font-size: 18px">Objectives:</h3>
+                <ul style="list-style: none; padding: 0">
+                    <li>🔹 Destroy asteroids and alien ships</li>
+                    <li>🔹 Prevent enemies from hitting Earth</li>
+                    <li>🔹 Collect health pickups to restore health</li>
+                    <li>🔹 Score points to increase difficulty</li>
+                </ul>
+            </div>
+            <button id="start-game" style="
+                background-color: #4488ff;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 16px;
+                transition: background-color 0.3s">
+                Choose Your Ship
+            </button>
+        `;
+
+        document.body.appendChild(objectiveDiv);
+
+        // Add hover effect to button
+        const button = objectiveDiv.querySelector('#start-game');
+        button.addEventListener('mouseover', () => {
+            button.style.backgroundColor = '#5599ff';
+        });
+        button.addEventListener('mouseout', () => {
+            button.style.backgroundColor = '#4488ff';
+        });
+
+        // Show ship selection when clicked
+        button.addEventListener('click', () => {
+            objectiveDiv.style.transition = 'opacity 0.5s';
+            objectiveDiv.style.opacity = '0';
+            setTimeout(() => {
+                objectiveDiv.remove();
+                // Show ship selection screen
+                document.getElementById('ship-selection').style.display = 'flex';
+            }, 500);
+        });
+    }
+    
     setupScene() {
         this.scene = new THREE.Scene();
         

@@ -37,7 +37,7 @@ function setupShipSelection() {
     }
     
     // Add click handler to start button
-    const startButton = document.getElementById('start-game');
+    const startButton = document.getElementById('start-game-final');
     if (startButton) {
         startButton.addEventListener('click', () => {
             console.log("Start button clicked");
@@ -89,6 +89,9 @@ function animate() {
 
 // Initialize when the window loads
 window.addEventListener('load', () => {
-    console.log("Window loaded, setting up ship selection");
+    console.log("Window loaded, showing game objective");
+    // Show game objective first
+    Game.initialize();
+    // Setup ship selection (will be shown after objective screen)
     setupShipSelection();
 }); 
