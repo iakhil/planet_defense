@@ -280,57 +280,99 @@ class Spaceship {
     }
     
     setupControls() {
-        // For troubleshooting
-        console.log("Setting up ship controls");
-        
+        // Keyboard controls
         document.addEventListener('keydown', (event) => {
-            console.log("Key pressed:", event.code); // Debug
-            switch(event.code) {
-                case 'KeyW':
-                case 'ArrowUp':
+            switch(event.key.toLowerCase()) {
+                case 'w':
                     this.isMovingForward = true;
                     break;
-                case 'KeyS':
-                case 'ArrowDown':
+                case 's':
                     this.isMovingBackward = true;
                     break;
-                case 'KeyA':
-                case 'ArrowLeft':
+                case 'a':
                     this.isRotatingLeft = true;
                     break;
-                case 'KeyD':
-                case 'ArrowRight':
+                case 'd':
                     this.isRotatingRight = true;
                     break;
-                case 'Space':
+                case ' ':
                     this.isFiring = true;
                     break;
             }
         });
         
         document.addEventListener('keyup', (event) => {
-            switch(event.code) {
-                case 'KeyW':
-                case 'ArrowUp':
+            switch(event.key.toLowerCase()) {
+                case 'w':
                     this.isMovingForward = false;
                     break;
-                case 'KeyS':
-                case 'ArrowDown':
+                case 's':
                     this.isMovingBackward = false;
                     break;
-                case 'KeyA':
-                case 'ArrowLeft':
+                case 'a':
                     this.isRotatingLeft = false;
                     break;
-                case 'KeyD':
-                case 'ArrowRight':
+                case 'd':
                     this.isRotatingRight = false;
                     break;
-                case 'Space':
+                case ' ':
                     this.isFiring = false;
                     break;
             }
         });
+
+        // Touch controls
+        if ('ontouchstart' in window) {
+            const setupTouchButton = (buttonId, startAction, endAction) => {
+                const button = document.getElementById(buttonId);
+                if (!button) return;
+
+                const startHandler = (e) => {
+                    e.preventDefault();
+                    startAction.call(this);
+                };
+
+                const endHandler = (e) => {
+                    e.preventDefault();
+                    endAction.call(this);
+                };
+
+                button.addEventListener('touchstart', startHandler);
+                button.addEventListener('touchend', endHandler);
+                button.addEventListener('touchcancel', endHandler);
+
+                // Also handle mouse events for testing on desktop
+                button.addEventListener('mousedown', startHandler);
+                button.addEventListener('mouseup', endHandler);
+                button.addEventListener('mouseleave', endHandler);
+            };
+
+            // Setup each control button
+            setupTouchButton('thrust-forward', 
+                () => this.isMovingForward = true,
+                () => this.isMovingForward = false
+            );
+
+            setupTouchButton('thrust-backward',
+                () => this.isMovingBackward = true,
+                () => this.isMovingBackward = false
+            );
+
+            setupTouchButton('rotate-left',
+                () => this.isRotatingLeft = true,
+                () => this.isRotatingLeft = false
+            );
+
+            setupTouchButton('rotate-right',
+                () => this.isRotatingRight = true,
+                () => this.isRotatingRight = false
+            );
+
+            setupTouchButton('fire-button',
+                () => this.isFiring = true,
+                () => this.isFiring = false
+            );
+        }
     }
     
     fireLaser() {

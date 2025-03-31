@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Solar System Defense</title>
     <link rel="stylesheet" href="style.css">
     <style>
@@ -11,6 +11,7 @@
             padding: 0;
             overflow: hidden;
             background-color: #000;
+            touch-action: none; /* Prevent default touch actions */
         }
         
         .floating-score {
@@ -202,6 +203,79 @@
             margin-bottom: 15px;
             height: 40px;
         }
+
+        /* Mobile-specific styles */
+        @media (max-width: 768px) {
+            .ship-options {
+                flex-direction: column;
+                gap: 15px;
+                padding: 10px;
+            }
+
+            .ship-option {
+                width: 90%;
+                max-width: 300px;
+            }
+
+            #ui-overlay {
+                font-size: 14px;
+            }
+
+            .ship-preview {
+                height: 100px;
+            }
+
+            #mobile-controls {
+                position: fixed;
+                bottom: 20px;
+                left: 0;
+                right: 0;
+                display: flex;
+                justify-content: space-between;
+                padding: 20px;
+                z-index: 1000;
+            }
+
+            .control-group {
+                display: flex;
+                gap: 10px;
+            }
+
+            .mobile-button {
+                width: 60px;
+                height: 60px;
+                background-color: rgba(255, 255, 255, 0.2);
+                border: 2px solid rgba(255, 255, 255, 0.4);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-size: 24px;
+                touch-action: none;
+                user-select: none;
+                -webkit-user-select: none;
+            }
+
+            .mobile-button:active {
+                background-color: rgba(255, 255, 255, 0.4);
+            }
+
+            #fire-button {
+                background-color: rgba(255, 0, 0, 0.2);
+                border-color: rgba(255, 0, 0, 0.4);
+            }
+
+            #fire-button:active {
+                background-color: rgba(255, 0, 0, 0.4);
+            }
+        }
+
+        @media (min-width: 769px) {
+            #mobile-controls {
+                display: none;
+            }
+        }
     </style>
     <audio id="laser-hit-sound" src="laser.mp3" preload="auto"></audio>
     <!-- Add this audio element for background music -->
@@ -279,6 +353,18 @@
             <h2>Game Over</h2>
             <p>Your final score: <span id="final-score">0</span></p>
             <button id="restart-button">Play Again</button>
+        </div>
+    </div>
+    
+    <div id="mobile-controls">
+        <div class="control-group">
+            <div class="mobile-button" id="rotate-left">↺</div>
+            <div class="mobile-button" id="rotate-right">↻</div>
+        </div>
+        <div class="mobile-button" id="fire-button">🔥</div>
+        <div class="control-group">
+            <div class="mobile-button" id="thrust-forward">↑</div>
+            <div class="mobile-button" id="thrust-backward">↓</div>
         </div>
     </div>
     
